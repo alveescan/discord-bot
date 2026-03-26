@@ -129,74 +129,128 @@ client.on("messageCreate", async (message) => {
     return message.reply({ embeds: [embed] });
   }
 
- if (command === "ship") {
-  try {
-    const target = message.mentions.users.first();
-    const user1 = message.author;
-    let user2;
+  if (command === "ship") {
+    try {
+      const target = message.mentions.users.first();
+      const user1 = message.author;
+      let user2;
 
-    if (target) {
-      if (target.bot) {
-        return message.reply("Botlarla ship olmaz 😔");
+      if (target) {
+        if (target.bot) {
+          return message.reply("Botlarla ship olmaz 😔");
+        }
+
+        if (target.id === message.author.id) {
+          return message.reply("Kendinle kendini shipleyemezsin 😭");
+        }
+
+        user2 = target;
+      } else {
+        const members = message.guild.members.cache
+          .filter((m) => !m.user.bot && m.id !== message.author.id)
+          .map((m) => m.user);
+
+        if (members.length === 0) {
+          return message.reply("Ship yapılacak kimse yok 😢");
+        }
+
+        user2 = members[Math.floor(Math.random() * members.length)];
       }
 
-      if (target.id === message.author.id) {
-        return message.reply("Kendinle kendini shipleyemezsin 😭");
+      const lovePercent = Math.floor(Math.random() * 101);
+
+      let comment = "Eh işte, zorlasan olur 😅";
+      if (lovePercent >= 90) comment = "Ruh eşi çıktınız ❤️";
+      else if (lovePercent >= 75) comment = "Alev alev ilişki 🔥";
+      else if (lovePercent >= 50) comment = "Olabilir aslında 😉";
+      else if (lovePercent >= 25) comment = "Biraz karışık 😬";
+      else comment = "Bundan bi şey çıkmaz 💀";
+
+      const filled = Math.floor(lovePercent / 10);
+      const empty = 10 - filled;
+      const bar = "💖".repeat(filled) + "🤍".repeat(empty);
+
+      const avatar1 = user1.displayAvatarURL({ extension: "png", size: 256 });
+      const avatar2 = user2.displayAvatarURL({ extension: "png", size: 256 });
+      const shipImage = `https://api.popcat.xyz/ship?user1=${encodeURIComponent(avatar1)}&user2=${encodeURIComponent(avatar2)}`;
+
+      const embed = new EmbedBuilder()
+        .setColor(0xff69b4)
+        .setTitle("💘 Ship Sonucu")
+        .addFields(
+          { name: "Kişiler", value: `${user1.username} 💞 ${user2.username}` },
+          { name: "Uyum", value: `%${lovePercent}\n${bar}` },
+          { name: "Yorum", value: comment }
+        )
+        .setThumbnail(user1.displayAvatarURL({ size: 256, dynamic: true }))
+        .setFooter({
+          text: `Shipleyen: ${message.author.username}`,
+          iconURL: message.author.displayAvatarURL({ size: 256, dynamic: true })
+        })
+        .setTimestamp();
+
+      // Çift avatar görseli
+      embed.setImage(shipImage);
+
+      return message.reply({ embeds: [embed] });
+    } catch (err) {
+      console.error("SHIP HATASI:", err);
+
+      // Görsel API patlarsa bile ship çalışsın diye fallback
+      try {
+        const target = message.mentions.users.first();
+        const user1 = message.author;
+        let user2;
+
+        if (target && !target.bot && target.id !== message.author.id) {
+          user2 = target;
+        } else {
+          const members = message.guild.members.cache
+            .filter((m) => !m.user.bot && m.id !== message.author.id)
+            .map((m) => m.user);
+
+          if (members.length === 0) {
+            return message.reply("Ship yapılacak kimse yok 😢");
+          }
+
+          user2 = members[Math.floor(Math.random() * members.length)];
+        }
+
+        const lovePercent = Math.floor(Math.random() * 101);
+
+        let comment = "Eh işte, zorlasan olur 😅";
+        if (lovePercent >= 90) comment = "Ruh eşi çıktınız ❤️";
+        else if (lovePercent >= 75) comment = "Alev alev ilişki 🔥";
+        else if (lovePercent >= 50) comment = "Olabilir aslında 😉";
+        else if (lovePercent >= 25) comment = "Biraz karışık 😬";
+        else comment = "Bundan bi şey çıkmaz 💀";
+
+        const filled = Math.floor(lovePercent / 10);
+        const empty = 10 - filled;
+        const bar = "💖".repeat(filled) + "🤍".repeat(empty);
+
+        const fallbackEmbed = new EmbedBuilder()
+          .setColor(0xff69b4)
+          .setTitle("💘 Ship Sonucu")
+          .addFields(
+            { name: "Kişiler", value: `${user1.username} 💞 ${user2.username}` },
+            { name: "Uyum", value: `%${lovePercent}\n${bar}` },
+            { name: "Yorum", value: comment }
+          )
+          .setThumbnail(user1.displayAvatarURL({ size: 256, dynamic: true }))
+          .setFooter({
+            text: `Shipleyen: ${message.author.username}`,
+            iconURL: message.author.displayAvatarURL({ size: 256, dynamic: true })
+          })
+          .setTimestamp();
+
+        return message.reply({ embeds: [fallbackEmbed] });
+      } catch (fallbackErr) {
+        console.error("SHIP FALLBACK HATASI:", fallbackErr);
+        return message.reply("Ship komutunda bir hata oldu 😭");
       }
-
-      user2 = target;
-    } else {
-      const members = message.guild.members.cache
-        .filter((m) => !m.user.bot && m.id !== message.author.id)
-        .map((m) => m.user);
-
-      if (members.length === 0) {
-        return message.reply("Ship yapılacak kimse yok 😢");
-      }
-
-      user2 = members[Math.floor(Math.random() * members.length)];
     }
-
-    const lovePercent = Math.floor(Math.random() * 101);
-
-    let comment = "Eh işte, zorlasan olur 😅";
-    if (lovePercent >= 90) comment = "Ruh eşi çıktınız ❤️";
-    else if (lovePercent >= 75) comment = "Alev alev ilişki 🔥";
-    else if (lovePercent >= 50) comment = "Olabilir aslında 😉";
-    else if (lovePercent >= 25) comment = "Biraz karışık 😬";
-    else comment = "Bundan bi şey çıkmaz 💀";
-
-    const filled = Math.floor(lovePercent / 10);
-    const empty = 10 - filled;
-    const bar = "💖".repeat(filled) + "🤍".repeat(empty);
-
-    // 💖 ÇİFT AVATAR API
-    const avatar1 = user1.displayAvatarURL({ extension: "png", size: 256 });
-    const avatar2 = user2.displayAvatarURL({ extension: "png", size: 256 });
-
-    const shipImage = `https://api.popcat.xyz/ship?user1=${encodeURIComponent(avatar1)}&user2=${encodeURIComponent(avatar2)}`;
-
-    const embed = new EmbedBuilder()
-      .setColor(0xff69b4)
-      .setTitle("💘 Ship Sonucu")
-      .addFields(
-        { name: "Kişiler", value: `${user1.username} 💞 ${user2.username}` },
-        { name: "Uyum", value: `%${lovePercent}\n${bar}` },
-        { name: "Yorum", value: comment }
-      )
-      .setImage(shipImage) // 💥 BURASI ÇİFT AVATAR
-      .setFooter({
-        text: `Shipleyen: ${message.author.username}`,
-        iconURL: message.author.displayAvatarURL({ size: 256, dynamic: true })
-      })
-      .setTimestamp();
-
-    return message.reply({ embeds: [embed] });
-  } catch (err) {
-    console.error("SHIP HATASI:", err);
-    return message.reply("Ship komutunda bir hata oldu 😭");
   }
-}
 
   if (command === "spotify") {
     try {
