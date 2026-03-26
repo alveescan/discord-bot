@@ -38,6 +38,17 @@ client.once("clientReady", () => {
   console.log(`${client.user.tag} olarak giriş yapıldı.`);
 });
 
+client.on("messageDelete", (message) => {
+  if (!message.guild) return;
+  if (!message.author || message.author.bot) return;
+
+  snipes.set(message.channel.id, {
+    content: message.content,
+    author: message.author,
+    createdAt: message.createdAt
+  });
+});
+
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
   if (!message.guild) return;
@@ -57,9 +68,6 @@ client.on("messageCreate", async (message) => {
     try {
       const member = await message.guild.members.fetch(message.author.id);
       const voiceChannel = member.voice.channel;
-
-      console.log("Komutu yazan:", message.author.tag);
-      console.log("Voice channel:", voiceChannel ? voiceChannel.name : "YOK");
 
       if (!voiceChannel) {
         return message.reply("Komutu yazan hesap şu an bir ses kanalında değil.");
@@ -162,14 +170,10 @@ client.on("messageCreate", async (message) => {
       const empty = 10 - filled;
       const bar = "💖".repeat(filled) + "🤍".repeat(empty);
 
-      const avatar1 = user1.displayAvatarURL({ extension: "png", size: 256 });
-      const avatar2 = user2.displayAvatarURL({ extension: "png", size: 256 });
-
-      const shipImage = `https://api.popcat.xyz/ship?user1=${encodeURIComponent(avatar1)}&user2=${encodeURIComponent(avatar2)}`;
-
       const embed = new EmbedBuilder()
         .setColor("Pink")
         .setTitle("💘 Ship Sonucu")
+        .setThumbnail(user2.displayAvatarURL({ dynamic: true, size: 256 }))
         .setDescription(
 `**${user1.username}** 💞 **${user2.username}**
 
@@ -178,8 +182,10 @@ ${bar}
 
 **Yorum:** ${comment}`
         )
-        .setImage(shipImage)
-        .setFooter({ text: `Shipleyen: ${message.author.username}` })
+        .setFooter({
+          text: `Shipleyen: ${message.author.username}`,
+          iconURL: message.author.displayAvatarURL({ dynamic: true })
+        })
         .setTimestamp();
 
       return message.reply({ embeds: [embed] });
@@ -190,52 +196,47 @@ ${bar}
   }
 
   if (command === "spotify") {
-    const member = message.mentions.members.first() || message.member;
+    try {
+      const member = message.mentions.members.first() || message.member;
 
-    const spotifyActivity = member.presence?.activities?.find(
-      (activity) =>
-        activity.type === ActivityType.Listening &&
-        activity.name === "Spotify"
-    );
+      const spotifyActivity = member.presence?.activities?.find(
+        (activity) =>
+          activity.type === ActivityType.Listening &&
+          activity.name === "Spotify"
+      );
 
-    if (!spotifyActivity) {
-      return message.reply(`${member.user.username} şu an Spotify dinlemiyor ya da durumu görünmüyor.`);
+      if (!spotifyActivity) {
+        return message.reply(`${member.user.username} şu an Spotify dinlemiyor ya da durumu görünmüyor.`);
+      }
+
+      const song = spotifyActivity.details || "Bilinmeyen şarkı";
+      const artist = spotifyActivity.state || "Bilinmeyen sanatçı";
+      const album = spotifyActivity.assets?.largeText || "Bilinmeyen albüm";
+      const image = spotifyActivity.assets?.largeImage
+        ? `https://i.scdn.co/image/${spotifyActivity.assets.largeImage.replace("spotify:", "")}`
+        : null;
+
+      const embed = new EmbedBuilder()
+        .setTitle("Spotify Dinliyor")
+        .setDescription(`**Kullanıcı:** ${member.user.username}`)
+        .addFields(
+          { name: "Şarkı", value: song, inline: false },
+          { name: "Sanatçı", value: artist, inline: false },
+          { name: "Albüm", value: album, inline: false }
+        )
+        .setColor(0x1db954)
+        .setTimestamp();
+
+      if (image) {
+        embed.setThumbnail(image);
+      }
+
+      return message.reply({ embeds: [embed] });
+    } catch (err) {
+      console.error("SPOTIFY HATASI:", err);
+      return message.reply("Spotify komutunda bir hata oldu 😭");
     }
-
-    const song = spotifyActivity.details || "Bilinmeyen şarkı";
-    const artist = spotifyActivity.state || "Bilinmeyen sanatçı";
-    const album = spotifyActivity.assets?.largeText || "Bilinmeyen albüm";
-    const image = spotifyActivity.assets?.largeImage
-      ? `https://i.scdn.co/image/${spotifyActivity.assets.largeImage.replace("spotify:", "")}`
-      : null;
-
-    const embed = new EmbedBuilder()
-      .setTitle("Spotify Dinliyor")
-      .setDescription(`**Kullanıcı:** ${member.user.username}`)
-      .addFields(
-        { name: "Şarkı", value: song, inline: false },
-        { name: "Sanatçı", value: artist, inline: false },
-        { name: "Albüm", value: album, inline: false }
-      )
-      .setColor(0x1db954);
-
-    if (image) {
-      embed.setThumbnail(image);
-    }
-
-    return message.reply({ embeds: [embed] });
   }
-});
-
-client.on("messageDelete", (message) => {
-  if (!message.guild) return;
-  if (message.author?.bot) return;
-
-  snipes.set(message.channel.id, {
-    content: message.content,
-    author: message.author,
-    createdAt: message.createdAt
-  });
 });
 
 process.on("unhandledRejection", console.error);
