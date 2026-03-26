@@ -104,9 +104,10 @@ if (command === "leave") {
   return message.reply({ embeds: [embed] });
   }
  else if (command === "ship") {
-  const target = message.mentions.users.first();
-  let user1 = message.author;
-  let user2;
+  try {
+    const target = message.mentions.users.first();
+    let user1 = message.author;
+    let user2;
 
   if (target) {
     if (target.bot) return message.reply("Botlarla ship olmaz 😔");
@@ -155,6 +156,11 @@ if (command === "leave") {
     .setTimestamp();
 
   return message.reply({ embeds: [embed] });
+      } catch (err) {
+    console.error("SHIP HATASI:", err);
+    return message.reply("Ship komutunda bir hata oldu 😭");
+  }
+}
 }
 
   if (command === "spotify") {
@@ -203,6 +209,8 @@ client.on("messageDelete", (message) => {
   });
 });
 client.login(process.env.TOKEN);
+process.on("unhandledRejection", console.error);
+process.on("uncaughtException", console.error);
 const express = require("express");
 const app = express();
 
