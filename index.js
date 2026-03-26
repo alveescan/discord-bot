@@ -1,11 +1,15 @@
-require('dotenv').config();
+require("dotenv").config();
+
 const {
   Client,
   GatewayIntentBits,
   ActivityType,
   EmbedBuilder
-} = require('discord.js');
-const { joinVoiceChannel, getVoiceConnection } = require('@discordjs/voice');
+} = require("discord.js");
+const { joinVoiceChannel, getVoiceConnection } = require("@discordjs/voice");
+const express = require("express");
+
+const app = express();
 const snipes = new Map();
 
 const client = new Client({
@@ -22,6 +26,14 @@ const client = new Client({
 
 const PREFIX = process.env.PREFIX || ".";
 
+app.get("/", (req, res) => {
+  res.send("Bot aktif 🔥");
+});
+
+app.listen(process.env.PORT || 3000, () => {
+  console.log("Web server çalışıyor");
+});
+
 client.once("clientReady", () => {
   console.log(`${client.user.tag} olarak giriş yapıldı.`);
 });
@@ -35,139 +47,153 @@ client.on("messageCreate", async (message) => {
   }
 
   if (!message.content.startsWith(PREFIX)) return;
+
   const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
   const command = args.shift()?.toLowerCase();
+
+  if (!command) return;
+
   if (command === "join") {
-  try {
-    const member = await message.guild.members.fetch(message.author.id);
-    const voiceChannel = member.voice.channel;
+    try {
+      const member = await message.guild.members.fetch(message.author.id);
+      const voiceChannel = member.voice.channel;
 
-    console.log("Komutu yazan:", message.author.tag);
-    console.log("Voice channel:", voiceChannel ? voiceChannel.name : "YOK");
+      console.log("Komutu yazan:", message.author.tag);
+      console.log("Voice channel:", voiceChannel ? voiceChannel.name : "YOK");
 
-    if (!voiceChannel) {
-      return message.reply("Komutu yazan hesap şu an bir ses kanalında değil.");
+      if (!voiceChannel) {
+        return message.reply("Komutu yazan hesap şu an bir ses kanalında değil.");
+      }
+
+      joinVoiceChannel({
+        channelId: voiceChannel.id,
+        guildId: message.guild.id,
+        adapterCreator: message.guild.voiceAdapterCreator,
+        selfDeaf: false
+      });
+
+      return message.reply(`Ses kanalına girdim: ${voiceChannel.name} 🔊`);
+    } catch (error) {
+      console.error("JOIN HATASI:", error);
+      return message.reply("Ses kanalına girerken hata oluştu.");
+    }
+  }
+
+  if (command === "leave") {
+    const connection = getVoiceConnection(message.guild.id);
+
+    if (!connection) {
+      return message.reply("Zaten ses kanalında değilim.");
     }
 
-    joinVoiceChannel({
-      channelId: voiceChannel.id,
-      guildId: message.guild.id,
-      adapterCreator: message.guild.voiceAdapterCreator,
-      selfDeaf: false,
-    });
-
-    return message.reply(`Ses kanalına girdim: ${voiceChannel.name} 🔊`);
-  } catch (error) {
-    console.error("JOIN HATASI:", error);
-    return message.reply("Ses kanalına girerken hata oluştu.");
-  }
-}
-if (command === "leave") {
-  const connection = getVoiceConnection(message.guild.id);
-
-  if (!connection) {
-    return message.reply("Zaten ses kanalında değilim.");
+    connection.destroy();
+    return message.reply("Ses kanalından çıktım 🚪");
   }
 
-  connection.destroy();
-
-  return message.reply("Ses kanalından çıktım 🚪");
-}
   if (command === "snipe") {
-  const data = snipes.get(message.channel.id);
+    const data = snipes.get(message.channel.id);
 
-  if (!data) {
-    return message.reply("Silinen mesaj yok 😢");
+    if (!data) {
+      return message.reply("Silinen mesaj yok 😢");
+    }
+
+    const embed = new EmbedBuilder()
+      .setAuthor({
+        name: data.author.tag,
+        iconURL: data.author.displayAvatarURL({ dynamic: true })
+      })
+      .setDescription(data.content || "*Mesaj içeriği yok*")
+      .setFooter({ text: "Silinen mesaj" })
+      .setTimestamp(data.createdAt)
+      .setColor(0xff0000);
+
+    return message.reply({ embeds: [embed] });
   }
-
-  const embed = new EmbedBuilder()
-    .setAuthor({
-      name: data.author.tag,
-      iconURL: data.author.displayAvatarURL({ dynamic: true })
-    })
-    .setDescription(data.content || "*Mesaj içeriği yok*")
-    .setFooter({ text: "Silinen mesaj" })
-    .setTimestamp(data.createdAt)
-    .setColor(0xff0000);
-
-  return message.reply({ embeds: [embed] });
-}
 
   if (command === "avatar") {
-  const user = message.mentions.users.first() || message.author;
+    const user = message.mentions.users.first() || message.author;
 
-  const embed = new EmbedBuilder()
-    .setTitle(`${user.username} adlı kullanıcının avatarı`)
-    .setImage(user.displayAvatarURL({ size: 1024, dynamic: true }))
-    .setColor(0x5865F2);
+    const embed = new EmbedBuilder()
+      .setTitle(`${user.username} adlı kullanıcının avatarı`)
+      .setImage(user.displayAvatarURL({ size: 1024, dynamic: true }))
+      .setColor(0x5865f2);
 
-  return message.reply({ embeds: [embed] });
-  }
- else if (command === "ship") {
-  try {
-    const target = message.mentions.users.first();
-    let user1 = message.author;
-    let user2;
-
-  if (target) {
-    if (target.bot) return message.reply("Botlarla ship olmaz 😔");
-    if (target.id === message.author.id) return message.reply("Kendinle kendini shipleyemezsin 😭");
-    user2 = target;
-  } else {
-    const members = message.guild.members.cache
-      .filter(m => !m.user.bot && m.id !== message.author.id)
-      .map(m => m.user);
-
-    if (!members.length) return message.reply("Ship yapılacak kimse yok 😢");
-
-    user2 = members[Math.floor(Math.random() * members.length)];
+    return message.reply({ embeds: [embed] });
   }
 
-  const lovePercent = Math.floor(Math.random() * 101);
+  if (command === "ship") {
+    try {
+      const target = message.mentions.users.first();
+      const user1 = message.author;
+      let user2;
 
-  let comment = "Eh işte, zorlasan olur 😅";
-  if (lovePercent >= 90) comment = "Ruh eşi çıktınız ❤️";
-  else if (lovePercent >= 75) comment = "Alev alev ilişki 🔥";
-  else if (lovePercent >= 50) comment = "Olabilir aslında 😉";
-  else if (lovePercent >= 25) comment = "Biraz karışık 😬";
-  else comment = "Bundan bi şey çıkmaz 💀";
+      if (target) {
+        if (target.bot) {
+          return message.reply("Botlarla ship olmaz 😔");
+        }
 
-  const filled = Math.floor(lovePercent / 10);
-  const empty = 10 - filled;
-  const bar = "💖".repeat(filled) + "🤍".repeat(empty);
+        if (target.id === message.author.id) {
+          return message.reply("Kendinle kendini shipleyemezsin 😭");
+        }
 
-  // 🔥 AVATAR BİRLEŞTİRME
-  const avatar1 = user1.displayAvatarURL({ extension: "png", size: 256 });
-  const avatar2 = user2.displayAvatarURL({ extension: "png", size: 256 });
+        user2 = target;
+      } else {
+        const members = message.guild.members.cache
+          .filter((m) => !m.user.bot && m.id !== message.author.id)
+          .map((m) => m.user);
 
-  const shipImage = `https://api.popcat.xyz/ship?user1=${encodeURIComponent(avatar1)}&user2=${encodeURIComponent(avatar2)}`;
+        if (!members.length) {
+          return message.reply("Ship yapılacak kimse yok 😢");
+        }
 
-  const embed = new EmbedBuilder()
-    .setColor("Pink")
-    .setTitle("💘 Ship Sonucu")
-    .setDescription(
-      `**${user1.username}** 💞 **${user2.username}**\n\n` +
-      `**Uyum:** \`${lovePercent}%\`\n` +
-      `${bar}\n\n` +
-      `**Yorum:** ${comment}`
-    )
-    .setImage(shipImage) // 👈 BURASI AVATARLI GÖRSEL
-    .setFooter({ text: `Shipleyen: ${message.author.username}` })
-    .setTimestamp();
+        user2 = members[Math.floor(Math.random() * members.length)];
+      }
 
-  return message.reply({ embeds: [embed] });
-      } catch (err) {
-    console.error("SHIP HATASI:", err);
-    return message.reply("Ship komutunda bir hata oldu 😭");
+      const lovePercent = Math.floor(Math.random() * 101);
+
+      let comment = "Eh işte, zorlasan olur 😅";
+      if (lovePercent >= 90) comment = "Ruh eşi çıktınız ❤️";
+      else if (lovePercent >= 75) comment = "Alev alev ilişki 🔥";
+      else if (lovePercent >= 50) comment = "Olabilir aslında 😉";
+      else if (lovePercent >= 25) comment = "Biraz karışık 😬";
+      else comment = "Bundan bi şey çıkmaz 💀";
+
+      const filled = Math.floor(lovePercent / 10);
+      const empty = 10 - filled;
+      const bar = "💖".repeat(filled) + "🤍".repeat(empty);
+
+      const avatar1 = user1.displayAvatarURL({ extension: "png", size: 256 });
+      const avatar2 = user2.displayAvatarURL({ extension: "png", size: 256 });
+
+      const shipImage = `https://api.popcat.xyz/ship?user1=${encodeURIComponent(avatar1)}&user2=${encodeURIComponent(avatar2)}`;
+
+      const embed = new EmbedBuilder()
+        .setColor("Pink")
+        .setTitle("💘 Ship Sonucu")
+        .setDescription(
+`**${user1.username}** 💞 **${user2.username}**
+
+**Uyum:** %${lovePercent}
+${bar}
+
+**Yorum:** ${comment}`
+        )
+        .setImage(shipImage)
+        .setFooter({ text: `Shipleyen: ${message.author.username}` })
+        .setTimestamp();
+
+      return message.reply({ embeds: [embed] });
+    } catch (err) {
+      console.error("SHIP HATASI:", err);
+      return message.reply("Ship komutunda bir hata oldu 😭");
+    }
   }
-}
-}
 
   if (command === "spotify") {
     const member = message.mentions.members.first() || message.member;
 
     const spotifyActivity = member.presence?.activities?.find(
-      activity =>
+      (activity) =>
         activity.type === ActivityType.Listening &&
         activity.name === "Spotify"
     );
@@ -191,13 +217,16 @@ if (command === "leave") {
         { name: "Sanatçı", value: artist, inline: false },
         { name: "Albüm", value: album, inline: false }
       )
-      .setColor(0x1DB954);
+      .setColor(0x1db954);
 
-    if (image) embed.setThumbnail(image);
+    if (image) {
+      embed.setThumbnail(image);
+    }
 
     return message.reply({ embeds: [embed] });
   }
 });
+
 client.on("messageDelete", (message) => {
   if (!message.guild) return;
   if (message.author?.bot) return;
@@ -208,16 +237,8 @@ client.on("messageDelete", (message) => {
     createdAt: message.createdAt
   });
 });
-client.login(process.env.TOKEN);
+
 process.on("unhandledRejection", console.error);
 process.on("uncaughtException", console.error);
-const express = require("express");
-const app = express();
 
-app.get("/", (req, res) => {
-  res.send("Bot aktif 🔥");
-});
-
-app.listen(process.env.PORT || 3000, () => {
-  console.log("Web server çalışıyor");
-});
+client.login(process.env.TOKEN);
