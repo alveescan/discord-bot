@@ -15,13 +15,14 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildModeration,
-    GatewayIntentBits.GuildVoiceStates
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildPresences
   ]
 });
 
 const PREFIX = process.env.PREFIX || ".";
 
-client.once("ready", () => {
+client.once("clientReady", () => {
   console.log(`${client.user.tag} olarak giriş yapıldı.`);
 });
 
@@ -102,22 +103,59 @@ if (command === "leave") {
 
   return message.reply({ embeds: [embed] });
   }
-  if (command === "ship") {
+ else if (command === "ship") {
+  const target = message.mentions.users.first();
+  let user1 = message.author;
+  let user2;
+
+  if (target) {
+    if (target.bot) return message.reply("Botlarla ship olmaz 😔");
+    if (target.id === message.author.id) return message.reply("Kendinle kendini shipleyemezsin 😭");
+    user2 = target;
+  } else {
     const members = message.guild.members.cache
-      .filter(member => !member.user.bot)
-      .map(member => member.user);
+      .filter(m => !m.user.bot && m.id !== message.author.id)
+      .map(m => m.user);
 
-    if (members.length < 2) {
-      return message.reply("Ship için en az 2 gerçek kullanıcı lazım.");
-    }
+    if (!members.length) return message.reply("Ship yapılacak kimse yok 😢");
 
-    const shuffled = members.sort(() => 0.5 - Math.random());
-    const user1 = shuffled[0];
-    const user2 = shuffled[1];
-    const percent = Math.floor(Math.random() * 101);
-
-    return message.reply(`💘 ${user1.username} × ${user2.username}\nAşk oranı: **%${percent}**`);
+    user2 = members[Math.floor(Math.random() * members.length)];
   }
+
+  const lovePercent = Math.floor(Math.random() * 101);
+
+  let comment = "Eh işte, zorlasan olur 😅";
+  if (lovePercent >= 90) comment = "Ruh eşi çıktınız ❤️";
+  else if (lovePercent >= 75) comment = "Alev alev ilişki 🔥";
+  else if (lovePercent >= 50) comment = "Olabilir aslında 😉";
+  else if (lovePercent >= 25) comment = "Biraz karışık 😬";
+  else comment = "Bundan bi şey çıkmaz 💀";
+
+  const filled = Math.floor(lovePercent / 10);
+  const empty = 10 - filled;
+  const bar = "💖".repeat(filled) + "🤍".repeat(empty);
+
+  // 🔥 AVATAR BİRLEŞTİRME
+  const avatar1 = user1.displayAvatarURL({ extension: "png", size: 256 });
+  const avatar2 = user2.displayAvatarURL({ extension: "png", size: 256 });
+
+  const shipImage = `https://api.popcat.xyz/ship?user1=${encodeURIComponent(avatar1)}&user2=${encodeURIComponent(avatar2)}`;
+
+  const embed = new EmbedBuilder()
+    .setColor("Pink")
+    .setTitle("💘 Ship Sonucu")
+    .setDescription(
+      `**${user1.username}** 💞 **${user2.username}**\n\n` +
+      `**Uyum:** \`${lovePercent}%\`\n` +
+      `${bar}\n\n` +
+      `**Yorum:** ${comment}`
+    )
+    .setImage(shipImage) // 👈 BURASI AVATARLI GÖRSEL
+    .setFooter({ text: `Shipleyen: ${message.author.username}` })
+    .setTimestamp();
+
+  return message.reply({ embeds: [embed] });
+}
 
   if (command === "spotify") {
     const member = message.mentions.members.first() || message.member;
